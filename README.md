@@ -1,10 +1,8 @@
 # discord-to-git
 
-A small Go program that turns selected Discord channels into ordinary Markdown
-files, commits changes, and optionally pushes them to a Git remote.
+Turns selected Discord channels into ordinary Markdown files, commits changes, and optionally pushes them to a Git remote.
 
-It uses Discord's official REST API and Go's standard library. No database,
-Discord SDK, Docker, or Discord Sync CLI is needed to run it.
+It uses Discord's official REST API and Go's standard library.
 
 ## What the archive looks like
 
