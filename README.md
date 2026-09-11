@@ -98,7 +98,7 @@ and the output paths. Renaming a channel changes its metadata only.
 - guild_id: Discord server ID.
 - channels: a list of objects, each with an explicit channel id.
 - branch: archive branch.
-- remote: Git URL or absolute path; an empty string disables pushes.
+- remote: Git URL, absolute path, or configured Git remote name; an empty string disables pushes.
 
 Use a separate private Git repository for the archive. Do not point the archive
 output at a code checkout: the program owns and replaces its generated files.
@@ -109,11 +109,14 @@ It refuses nonempty directories that it did not initialize.
 Supply DISCORD_BOT_TOKEN through your credential provider, then:
 
 ```sh
-# One complete snapshot:
+# One incremental refresh (backfills an empty archive):
 nix run . -- -config config.local.json -out data/archive -once
 
-# Keep refreshing, waiting five minutes after each completed attempt:
-nix run . -- -config config.local.json -out data/archive -interval 5m
+# Force a complete reconciliation of history:
+nix run . -- -config config.local.json -out data/archive -once -full
+
+# Keep syncing, pausing one minute after each completed attempt:
+nix run . -- -config config.local.json -out data/archive
 ```
 
 Only a bot token is accepted. The bot needs Message Content Intent, View Channel,
@@ -128,16 +131,45 @@ program uses.
 
 ## How refresh works
 
-1. Check permissions and discover threads under the selected channels.
-2. Fetch every page of messages and reaction users, respecting Discord rate limits.
-3. Render a complete temporary directory.
-4. Replace the generated checkout, commit if content changed, and push.
+1. Check permissions and discover active and archived threads.
+2. For each channel or thread, fetch messages newer than its saved position and
+   recheck messages created within the last 24 hours.
+3. Retain older JSON records, replace the fetched range, and render a complete
+   temporary snapshot. Missing messages in that range become deletions.
+4. Commit only changed content and push the configured branch.
 
-This intentionally rescans history each time. It keeps the code small and notices
-old edits, removed messages, and deleted threads on the next successful refresh.
-For very large servers, measure a full scan before adding incremental state.
+An interrupted publish is recovered from Git HEAD before the next scan; uncommitted
+files in the bot-owned output directory are discarded. The committed archive is the checkpoint: the greatest message ID in each channel
+or thread records progress. No database is required. After an outage, fetching
+continues from that checkpoint even when it is older than the overlap window.
+Newly added channels and newly discovered threads receive a full backfill.
+
+Recent messages are fetched with their reaction users even when reaction counts
+are unchanged. Edits, deletions, reaction changes, and profile changes affecting
+older messages are reconciled by a full scan every 24 hours. Thread discovery
+runs on every cycle, including archived threads; it does not skip a thread just
+because its archived flag is unchanged. This is polling, not a Gateway event
+listener, so changes between polls can be missed.
+
+Defaults and overrides:
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| -interval | 1m | Pause after each completed attempt |
+| -lookback | 24h | Creation-time window to recheck for message changes |
+| -full-interval | 24h | Time between full history reconciliations |
+| -sync-timeout | 2h | Limit for one attempt, including backfill |
+| -full | false | Fully reconcile on every attempt |
+
+A full scan can take much longer than an incremental scan; it runs in place of
+that cycle's incremental refresh. Schedule state lives beside the checkout in
+archive.sync-state.json and survives restarts. On upgrade, an existing archive
+is reused immediately and its first scheduled full reconciliation is due one
+day later. A missing archive or stream is always backfilled.
+
 Discord does not provide a transactional server-wide snapshot: changes made
-during a scan can appear on the next one.
+during a scan can appear on the next one. See the
+[message pagination API](https://docs.discord.com/developers/resources/message#get-channel-messages).
 
 An API failure aborts the new snapshot, leaving the previous Git commit intact.
 A failed push is retried on the next cycle even if there are no new messages.
@@ -145,7 +177,8 @@ The Git branch moves only after a complete fetch and render. Read a cloned
 commit for a consistent view; the bot's working directory changes during publish.
 
 Status is written beside the checkout as archive.status.json. It includes the last
-attempt, duration, commit/message count on success, or the error on failure.
+attempt, scan mode, duration, next full reconciliation and commit/message count
+on success, or the error on failure.
 No-op refreshes do not create commits. Previous versions, including subsequently
 deleted messages, remain in Git history.
 

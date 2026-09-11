@@ -107,3 +107,28 @@ func publish(ctx context.Context, c config, repo, stage string) (string, error) 
 	}
 	return rev, nil
 }
+
+// Restore only this bot-owned checkout before using it as a checkpoint. A crash
+// during publish may have replaced files without advancing HEAD.
+func restoreCheckpoint(ctx context.Context, c config, repo string) (bool, error) {
+	refs, err := git(ctx, repo, "for-each-ref", "--format=%(refname)", "refs/heads/"+c.Branch)
+	if err != nil {
+		return false, err
+	}
+	exists := false
+	for _, ref := range strings.Split(refs, "\n") {
+		if ref == "refs/heads/"+c.Branch {
+			exists = true
+		}
+	}
+	if !exists {
+		return false, nil
+	} // An unfinished first snapshot is not a baseline.
+	if _, err := git(ctx, repo, "restore", "--source=HEAD", "--staged", "--worktree", "--", "."); err != nil {
+		return false, err
+	}
+	if _, err := git(ctx, repo, "clean", "-fd"); err != nil {
+		return false, err
+	}
+	return true, nil
+}

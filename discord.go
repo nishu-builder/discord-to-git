@@ -197,6 +197,11 @@ func (d *discordClient) checkPermissions(ctx context.Context, guild string, chan
 }
 
 func (d *discordClient) messages(ctx context.Context, id string) ([]message, error) {
+	return d.messagesFrom(ctx, id, "")
+}
+
+// Discord returns newest first. Stop once a complete page crosses the inclusive checkpoint.
+func (d *discordClient) messagesFrom(ctx context.Context, id, lower string) ([]message, error) {
 	var all []message
 	before := ""
 	for {
@@ -220,7 +225,14 @@ func (d *discordClient) messages(ctx context.Context, id string) ([]message, err
 				return nil, errors.New("invalid message in Discord response")
 			}
 		}
-		all = append(all, page...)
+		for _, m := range page {
+			if lower == "" || !idLess(m.ID, lower) {
+				all = append(all, m)
+			}
+		}
+		if lower != "" && idLess(next, lower) {
+			break
+		}
 		before = next
 		if len(page) < 100 {
 			break
