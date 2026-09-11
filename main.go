@@ -1,4 +1,4 @@
-// Command discord-to-git exports Discord messages as Markdown and pushes Git snapshots.
+// Command discord-to-git exports Discord messages as JSON and pushes Git snapshots.
 package main
 
 import (
@@ -18,20 +18,17 @@ import (
 )
 
 type channelConfig struct {
-	ID     string `json:"id"`
-	Folder string `json:"folder"`
+	ID string `json:"id"`
 }
 
 type config struct {
 	GuildID  string          `json:"guild_id"`
-	Folder   string          `json:"folder"`
 	Channels []channelConfig `json:"channels"`
 	Branch   string          `json:"branch"`
 	Remote   string          `json:"remote"`
 }
 
 var idPattern = regexp.MustCompile("^[0-9]{1,20}$")
-var folderPattern = regexp.MustCompile("^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 
 func loadConfig(path string) (config, error) {
 	var c config
@@ -45,15 +42,15 @@ func loadConfig(path string) (config, error) {
 	if err := decoder.Decode(&c); err != nil {
 		return c, err
 	}
-	if !idPattern.MatchString(c.GuildID) || !folderPattern.MatchString(c.Folder) || len(c.Channels) == 0 {
-		return c, errors.New("config needs a guild ID, safe folder name, and at least one channel")
+	if !idPattern.MatchString(c.GuildID) || len(c.Channels) == 0 {
+		return c, errors.New("config needs a guild ID and at least one channel")
 	}
-	ids, folders := map[string]bool{}, map[string]bool{}
+	ids := map[string]bool{}
 	for _, ch := range c.Channels {
-		if !idPattern.MatchString(ch.ID) || !folderPattern.MatchString(ch.Folder) || ids[ch.ID] || folders[ch.Folder] {
-			return c, errors.New("channel IDs and folder names must be valid and unique")
+		if !idPattern.MatchString(ch.ID) || ids[ch.ID] {
+			return c, errors.New("channel IDs must be valid and unique")
 		}
-		ids[ch.ID], folders[ch.Folder] = true, true
+		ids[ch.ID] = true
 	}
 	if c.Branch == "" {
 		c.Branch = "discord"
@@ -82,7 +79,7 @@ func syncOnce(ctx context.Context, api *discordClient, c config, repo string) (s
 
 func execute() error {
 	configPath := flag.String("config", "config.local.json", "JSON file listing the channels to archive")
-	out := flag.String("out", "data/archive", "dedicated Git checkout for generated Markdown")
+	out := flag.String("out", "data/archive", "dedicated Git checkout for generated JSON")
 	interval := flag.Duration("interval", 5*time.Minute, "pause between complete snapshots")
 	once := flag.Bool("once", false, "publish one snapshot and exit")
 	tokenSocket := flag.String("token-socket", "", "receive the bot token once on a private Unix socket")

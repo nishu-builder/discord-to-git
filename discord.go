@@ -13,55 +13,6 @@ import (
 	"time"
 )
 
-// Discord IDs are strings: converting a snowflake to a floating point number loses precision.
-type user struct {
-	ID         string `json:"id"`
-	Username   string `json:"username"`
-	GlobalName string `json:"global_name"`
-	Bot        bool   `json:"bot"`
-}
-type overwrite struct {
-	ID    string `json:"id"`
-	Type  int    `json:"type"`
-	Allow string `json:"allow"`
-	Deny  string `json:"deny"`
-}
-type channel struct {
-	ID             string      `json:"id"`
-	GuildID        string      `json:"guild_id"`
-	ParentID       string      `json:"parent_id"`
-	Name           string      `json:"name"`
-	Topic          string      `json:"topic"`
-	Type           int         `json:"type"`
-	Overwrites     []overwrite `json:"permission_overwrites"`
-	ThreadMetadata struct {
-		ArchiveTimestamp string `json:"archive_timestamp"`
-	} `json:"thread_metadata"`
-}
-type message struct {
-	ID              string     `json:"id"`
-	ChannelID       string     `json:"channel_id"`
-	Content         string     `json:"content"`
-	Type            int        `json:"type"`
-	Timestamp       time.Time  `json:"timestamp"`
-	EditedTimestamp *time.Time `json:"edited_timestamp"`
-	Author          user       `json:"author"`
-	Mentions        []user     `json:"mentions"`
-	Attachments     []struct {
-		Filename string `json:"filename"`
-		URL      string `json:"url"`
-		Size     int64  `json:"size"`
-	} `json:"attachments"`
-	Embeds []struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		URL         string `json:"url"`
-	} `json:"embeds"`
-	Reference *struct {
-		MessageID string `json:"message_id"`
-		ChannelID string `json:"channel_id"`
-	} `json:"message_reference"`
-}
 type threadPage struct {
 	Threads []channel `json:"threads"`
 	HasMore bool      `json:"has_more"`
@@ -306,7 +257,10 @@ func (d *discordClient) archived(ctx context.Context, parent, route string, join
 			return nil, errors.New("empty thread page claims more results")
 		}
 		last := page.Threads[len(page.Threads)-1]
-		next := last.ThreadMetadata.ArchiveTimestamp
+		next := ""
+		if last.ThreadMetadata != nil {
+			next = last.ThreadMetadata.ArchiveTimestamp
+		}
 		if joined {
 			next = last.ID
 		}
@@ -360,4 +314,41 @@ func (d *discordClient) threads(ctx context.Context, guild string, parents map[s
 		sort.Slice(result[parent], func(i, j int) bool { return idLess(result[parent][i].ID, result[parent][j].ID) })
 	}
 	return result, nil
+}
+
+// Each emoji can have normal and burst reactions, with separately paginated users.
+func (d *discordClient) reactionUsers(ctx context.Context, channelID, messageID string, e emoji, kind int) ([]user, error) {
+	key := e.Name
+	if e.ID != "" {
+		if !idPattern.MatchString(e.ID) {
+			return nil, errors.New("invalid reaction emoji ID")
+		}
+		key += ":" + e.ID
+	}
+	if key == "" {
+		return nil, errors.New("reaction has no emoji")
+	}
+	all := []user{}
+	after := ""
+	for {
+		path := "/channels/" + channelID + "/messages/" + messageID + "/reactions/" + url.PathEscape(key) + "?limit=100&type=" + strconv.Itoa(kind)
+		if after != "" {
+			path += "&after=" + after
+		}
+		var page []user
+		if err := d.get(ctx, path, &page); err != nil {
+			return nil, err
+		}
+		sort.Slice(page, func(i, j int) bool { return idLess(page[i].ID, page[j].ID) })
+		for _, u := range page {
+			if !idPattern.MatchString(u.ID) || (after != "" && !idLess(after, u.ID)) {
+				return nil, errors.New("reaction user pagination did not advance")
+			}
+			after = u.ID
+			all = append(all, u)
+		}
+		if len(page) < 100 {
+			return all, nil
+		}
+	}
 }
