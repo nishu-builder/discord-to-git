@@ -114,7 +114,7 @@ func TestSnapshotGitRoundTripAndFailure(t *testing.T) {
 	if count != 4 {
 		t.Fatalf("count %d", count)
 	}
-	threadPath := filepath.Join(repo, "channels/42/Messages/99/1000/data.json")
+	threadPath := filepath.Join(repo, "channels/42/messages/99/1000/data.json")
 	reply := readJSONTest[archivedMessage](t, threadPath)
 	if reply.AuthorID != "12" || len(reply.MentionIDs) != 1 || reply.MentionIDs[0] != "13" {
 		t.Fatal("user references lost")
@@ -131,19 +131,19 @@ func TestSnapshotGitRoundTripAndFailure(t *testing.T) {
 			t.Fatal("missing user record")
 		}
 	}
-	starterPath := filepath.Join(repo, "channels/42/Messages/99/data.json")
+	starterPath := filepath.Join(repo, "channels/42/messages/99/data.json")
 	starter := readJSONTest[archivedMessage](t, starterPath)
 	if starter.Missing || starter.Thread == nil || starter.AuthorID != "12" {
 		t.Fatal("starter overwritten")
 	}
-	placeholder := readJSONTest[map[string]any](t, filepath.Join(repo, "channels/42/Messages/88/data.json"))
+	placeholder := readJSONTest[map[string]any](t, filepath.Join(repo, "channels/42/messages/88/data.json"))
 	if placeholder["missing"] != true || placeholder["thread"] == nil || placeholder["author_id"] != nil || placeholder["timestamp"] != nil {
 		t.Fatal("invalid missing starter placeholder")
 	}
-	if _, err := os.Stat(filepath.Join(repo, "channels/42/Messages/88/1001/data.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(repo, "channels/42/messages/88/1001/data.json")); err != nil {
 		t.Fatal(err)
 	}
-	threadLocal := readJSONTest[archivedMessage](t, filepath.Join(repo, "channels/42/Messages/77/data.json"))
+	threadLocal := readJSONTest[archivedMessage](t, filepath.Join(repo, "channels/42/messages/77/data.json"))
 	if threadLocal.Missing || threadLocal.AuthorID != "12" || threadLocal.Thread == nil {
 		t.Fatal("thread-local starter lost")
 	}

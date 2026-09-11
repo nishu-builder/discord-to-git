@@ -11,7 +11,7 @@ data.json                              # schema version and guild ID
 channels/
   <channel-id>/
     data.json                          # channel name, topic, parent ID, etc.
-    Messages/
+    messages/
       <message-id>/
         data.json                      # message and optional thread metadata
         <reply-message-id>/
@@ -22,7 +22,7 @@ users/
 ```
 
 Paths use Discord snowflakes (stable IDs), never names or timestamps.
-The spelling and capitalization of `channels`, `Messages`, and `users` are
+The spelling and capitalization of `channels`, `messages`, and `users` are
 part of this format. Each ID is a JSON string, preserving its full precision.
 
 Message files contain `author_id`, `mention_ids`, and reaction
@@ -38,7 +38,7 @@ sorted numerically without converting them to floating point.
 
 A thread's metadata lives in the starter's `data.json` under `thread`,
 including its name, ID, owner ID, archive status, and parent channel ID.
-Replies are direct child directories of the starter, without another Messages
+Replies are direct child directories of the starter, without another messages
 or threads directory. Replies to individual messages inside a thread remain
 siblings; `message_reference` records that relationship.
 
@@ -67,51 +67,27 @@ The root README links channel IDs to their names for browsing.
 Discord API references: [threads](https://docs.discord.com/developers/topics/threads)
 and [messages and reactions](https://docs.discord.com/developers/resources/message).
 
-## Start here if you are new to Go
-
-Read the files in this order:
-
-| File | Responsibility |
-| --- | --- |
-| main.go | Load configuration, run one sync, and repeat on a timer. |
-| models.go | Typed API and archive data, including user ID references. |
-| discord.go | Discord HTTP requests, permissions, pagination, threads, and reactors. |
-| snapshot.go | Turn messages into the directory and JSON layout. |
-| git.go | Commit a completed snapshot and push it. |
-| credential.go | Read a token from the environment or a private local socket. |
-
-All files use package main, so they compile into one executable. A struct groups
-related fields; a method such as api.messages is a function attached to a type.
-Functions usually return a value and an error. Checking that error makes failure
-paths explicit. Context carries cancellation and deadlines through network calls.
-
-The *_test.go files use a local fake Discord server and real temporary Git repos.
-They do not need credentials or contact Discord.
-
 ## Build and develop
 
-Install Nix with flakes enabled, then:
+Use Nix with flakes enabled:
+
+```sh
+nix build
+nix flake check
+nix run . -- -h
+```
+
+flake.lock pins the toolchain and dependencies. The package includes Git, SSH,
+and CA certificates. The build runs the tests against a local fake Discord server
+and temporary Git repositories; no Discord credential is needed.
+
+For development, enter the Nix shell:
 
 ```sh
 nix develop
-go test ./...
-go run . -h
-
-# Reproducible package, including its tests:
-nix build
-./result/bin/discord-to-git -h
 ```
 
-flake.lock pins nixpkgs, including Go and Git. The development shell provides
-Go, the Go language server (gopls), and Git. The packaged executable includes Git,
-SSH, and a CA certificate path through its launcher.
-
-Without Nix, Go 1.23+ and Git are enough:
-
-```sh
-go test ./...
-go build -o bin/discord-to-git .
-```
+The shell provides Go, gopls, and Git.
 
 ## Configure
 
@@ -189,7 +165,7 @@ this.
 For a broker that must keep tokens off disk, start with:
 
 ```sh
-discord-to-git -config config.local.json -out data/archive \
+nix run . -- -config config.local.json -out data/archive \
   -token-socket /private/runtime/discord-token.sock
 ```
 
