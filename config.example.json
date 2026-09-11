@@ -1,0 +1,16 @@
+{
+  "guild_id": "YOUR_GUILD_ID",
+  "folder": "Team",
+  "channels": [
+    {
+      "id": "YOUR_CHANNEL_ID",
+      "folder": "general"
+    },
+    {
+      "id": "ANOTHER_CHANNEL_ID",
+      "folder": "random"
+    }
+  ],
+  "branch": "discord",
+  "remote": ""
+}

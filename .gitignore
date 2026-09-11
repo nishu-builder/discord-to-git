@@ -1,0 +1,5 @@
+/result
+/result-*
+/bin/
+/data/
+/config.local.json
