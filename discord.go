@@ -61,7 +61,7 @@ func (d *discordClient) get(ctx context.Context, path string, target any) error 
 			return err
 		}
 		req.Header.Set("Authorization", "Bot "+d.token)
-		req.Header.Set("User-Agent", "DiscordBot (https://github.com/Metta-AI/caos, 0.1)")
+		req.Header.Set("User-Agent", "DiscordBot (https://github.com/nishu-builder/discord-to-git, 0.1)")
 		response, err := d.http.Do(req)
 		if err != nil {
 			return err

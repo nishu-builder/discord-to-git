@@ -3,3 +3,12 @@
 /bin/
 /data/
 /config.local.json
+
+# Local credentials and runtime files
+.env
+.env.*
+!.env.example
+/runtime/
+*.sock
+*.status.json
+*.sync-state.json

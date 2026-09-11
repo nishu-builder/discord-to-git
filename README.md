@@ -2,7 +2,9 @@
 
 Turns selected Discord channels into one JSON file per message, commits changes, and optionally pushes them to a Git remote.
 
-It uses Discord's official REST API and Go's standard library.
+It uses Discord's official REST API and Go's standard library. Routine syncs are
+incremental, with daily full reconciliation. Public and private channels are
+supported when the bot has access.
 
 ## What the archive looks like
 
@@ -91,9 +93,10 @@ The shell provides Go, gopls, and Git.
 
 ## Configure
 
-Copy config.example.json to config.local.json. The example selects only
-general and random in example server. Channel IDs select both the source
-and the output paths. Renaming a channel changes its metadata only.
+Copy config.example.json to config.local.json, then replace YOUR_GUILD_ID and
+YOUR_CHANNEL_ID with IDs from your Discord server. Add one channels entry for
+each channel you want to archive. Channel IDs select both the source and the
+output paths; renaming a channel changes its metadata only.
 
 - guild_id: Discord server ID.
 - channels: a list of objects, each with an explicit channel id.
@@ -139,8 +142,8 @@ program uses.
 4. Commit only changed content and push the configured branch.
 
 An interrupted publish is recovered from Git HEAD before the next scan; uncommitted
-files in the bot-owned output directory are discarded. The committed archive is the checkpoint: the greatest message ID in each channel
-or thread records progress. No database is required. After an outage, fetching
+files in the bot-owned output directory are discarded. The committed archive
+is the checkpoint: the greatest message ID in each channel or thread records progress. No database is required. After an outage, fetching
 continues from that checkpoint even when it is older than the overlap window.
 Newly added channels and newly discovered threads receive a full backfill.
 
@@ -187,7 +190,7 @@ attachment URLs may expire. Normal and burst reaction users are fetched separate
 reported counts can briefly differ from user lists if a reaction changes during a
 scan. Polls, interactive components, forwarded snapshots, and interaction metadata
 are not represented in this version. Fetching reactors adds API requests, so a full
-scan takes longer than the previous text-only export.
+scan takes longer than fetching message bodies alone.
 
 ## Running under a supervisor
 
@@ -216,3 +219,7 @@ Git checkout exposes the JSON files directly. Caos's remote :@@= locator
 requires a full commit SHA; a moving branch name is not itself a cache key.
 
 Source code and private message data belong in different repositories.
+
+## License and contributions
+
+[MIT](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow.

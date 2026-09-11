@@ -12,6 +12,12 @@
           default = pkgs.buildGoModule {
             pname = "discord-to-git";
             version = "0.1.0";
+            meta = {
+              description = "Incremental Discord channel archives as JSON files in Git";
+              homepage = "https://github.com/nishu-builder/discord-to-git";
+              license = pkgs.lib.licenses.mit;
+              mainProgram = "discord-to-git";
+            };
             src = self;
             vendorHash = null; # The program uses only Go's standard library.
             env.CGO_ENABLED = "0";

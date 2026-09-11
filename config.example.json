@@ -3,9 +3,6 @@
   "channels": [
     {
       "id": "YOUR_CHANNEL_ID"
-    },
-    {
-      "id": "ANOTHER_CHANNEL_ID"
     }
   ],
   "branch": "discord",
